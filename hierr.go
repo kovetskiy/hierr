@@ -87,6 +87,10 @@ type HierarchicalError interface {
 	HierarchicalError() string
 }
 
+type WithNested interface {
+	GetNested() []interface{}
+}
+
 var (
 	exiter = os.Exit
 )
@@ -178,14 +182,22 @@ func String(object interface{}) string {
 	return fmt.Sprintf("%s", object)
 }
 
+func (err Error) GetNested() []interface{} {
+	if errs, ok := err.Nested.([]interface{}); ok {
+		return errs
+	}
+
+	return []interface{}{err.Nested}
+}
+
 func formatNestedError(err Error, children []interface{}) string {
 	message := err.Message
 
 	prolongate := false
 	for _, child := range children {
-		if childError, ok := child.(Error); ok {
-			errs, ok := childError.Nested.([]interface{})
-			if ok && len(errs) > 0 {
+		if childError, ok := child.(WithNested); ok {
+			errs := childError.GetNested()
+			if len(errs) > 0 {
 				prolongate = true
 				break
 			}
