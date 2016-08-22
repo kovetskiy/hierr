@@ -91,14 +91,11 @@ var (
 	exiter = os.Exit
 )
 
-// NestedError is either `error` or string.
-type NestedError interface{}
-
 // Errorf creates new hierarchy error.
 //
 // With nestedError == nil call will be equal to `fmt.Errorf()`.
 func Errorf(
-	nestedError NestedError,
+	nestedError interface{},
 	message string,
 	args ...interface{},
 ) error {
@@ -112,7 +109,7 @@ func Errorf(
 //
 // Have same semantics as `hierr.Errorf()`.
 func Fatalf(
-	nestedError NestedError,
+	nestedError interface{},
 	message string,
 	args ...interface{},
 ) {
@@ -127,7 +124,7 @@ func (err Error) Error() string {
 	case nil:
 		return err.Message
 
-	case []NestedError:
+	case []interface{}:
 		return formatNestedError(err, children)
 
 	default:
@@ -144,7 +141,7 @@ func (err Error) Error() string {
 
 // Push creates new hierarchy error with multiple branches separated by
 // separator, delimited by delimiter and prolongated by prolongator.
-func Push(topError NestedError, childError ...NestedError) error {
+func Push(topError interface{}, childError ...interface{}) error {
 	parent, ok := topError.(Error)
 	if !ok {
 		parent = Error{
@@ -152,15 +149,17 @@ func Push(topError NestedError, childError ...NestedError) error {
 		}
 	}
 
-	children, ok := parent.Nested.([]NestedError)
+	children, ok := parent.Nested.([]interface{})
 	if !ok {
-		children = []NestedError{}
+		children = []interface{}{}
 		if parent.Nested != nil {
 			children = append(children, parent.Nested)
 		}
 	}
 
-	children = append(children, childError...)
+	for _, child := range childError {
+		children = append(children, child)
+	}
 
 	return Error{
 		Message: parent.Message,
@@ -179,18 +178,19 @@ func String(object interface{}) string {
 	return fmt.Sprintf("%s", object)
 }
 
-func formatNestedError(err Error, children []NestedError) string {
+func formatNestedError(err Error, children []interface{}) string {
 	message := err.Message
 
 	prolongate := false
 	for _, child := range children {
 		if childError, ok := child.(Error); ok {
-			errs, ok := childError.Nested.([]NestedError)
+			errs, ok := childError.Nested.([]interface{})
 			if ok && len(errs) > 0 {
 				prolongate = true
 				break
 			}
 		}
+
 	}
 
 	for index, child := range children {
